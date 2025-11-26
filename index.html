@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Movimentar Item</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+    .info {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    select, button {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 16px;
+      background: #1f6feb;
+      color: #ffffff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #999999;
+      cursor: not-allowed;
+    }
+    .msg {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .erro {
+      color: #b00020;
+    }
+    .sucesso {
+      color: #1b5e20;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Movimentar Caixa</h1>
+
+    <div id="loading" class="info">Carregando informações...</div>
+
+    <div id="dados" style="display:none;">
+      <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
+      <div class="info"><strong>Produto:</strong> <span id="cx-produto"></span></div>
+      <div class="info"><strong>Cód. produto:</strong> <span id="cx-cod-produto"></span></div>
+      <div class="info"><strong>Lote:</strong> <span id="cx-lote"></span></div>
+      <div class="info"><strong>Estoque atual:</strong> <span id="cx-estoque-atual"></span></div>
+
+      <label for="destino">Novo destino</label>
+      <select id="destino">
+        <option value="">Selecione o destino...</option>
+      </select>
+
+      <button id="btn-confirmar" disabled>Confirmar movimentação</button>
+      <div id="msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- Supabase JS v2 via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // 1. Configuração do Supabase
+    const SUPABASE_URL = 'https://awgvthbcuyhboylhoqjq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Variáveis globais para reutilizar
+    let caixaAtual = null;          // objeto com dados da caixa
+    let estoqueAtual = null;        // objeto com dados do estoque atual
+
+    async function carregarDadosCaixa() {
+      const loadingEl = document.getElementById('loading');
+      const dadosEl   = document.getElementById('dados');
+      const msgEl     = document.getElementById('msg');
+
+      const params = new URLSearchParams(window.location.search);
+      const codigoCaixa = params.get('codigo_caixa');
+
+      if (!codigoCaixa) {
+        loadingEl.textContent = 'Código da caixa não informado na URL.';
+        return;
+      }
+
+      try {
+        // Buscar caixa pelo código
+        const { data: caixa, error: errCaixa } = await sb
+          .from('T_RM_CAIXAS')
+          .select('RM_ID_CAIXA, RM_CODIGO_CAIXA, RM_ID_PRODUTO, RM_LOTE, RM_ID_ESTOQUE_ATUAL')
+          .eq('RM_CODIGO_CAIXA', codigoCaixa)
+          .single();
+
+        if (errCaixa || !caixa) {
+          loadingEl.textContent = 'Caixa não encontrada.';
+          return;
+        }
+
+        caixaAtual = caixa;
+
+        // Buscar produto
+        const { data: produto, error: errProd } = await sb
+          .from('T_RM_PRODUTOS')
+          .select('RM_NOME_PRODUTO, RM_CODIGO_PRODUTO')
+          .eq('RM_ID_PRODUTO', caixa.RM_ID_PRODUTO)
+          .single();
+
+        if (errProd || !produto) {
+          loadingEl.textContent = 'Produto associado à caixa não encontrado.';
+          return;
+        }
+
+        // Buscar estoque atual
+        const { data: estAtual, error: errEst } = await sb
+          .from('T_RM_ESTOQUES')
+          .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
+          .eq('RM_ID_ESTOQUE', caixa.RM_ID_ESTOQUE_ATUAL)
+          .single();
+
+        if (errEst || !estAtual) {
+          loadingEl.textContent = 'Estoque atual da caixa não encontrado.';
+          return;
+        }
+
+        estoqueAtual = estAtual;
+
+        // Buscar todos os estoques para o destino
+        const { data: estoques, error: errListEst } = await sb
+          .from('T_RM_ESTOQUES')
+          .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
+          .order('RM_NOME_ESTOQUE', { ascending: true });
+
+        if (errListEst || !estoques) {
+          loadingEl.textContent = 'Não foi possível carregar a lista de estoques.';
+          return;
+        }
+
+        // Preencher informações na tela
+        document.getElementById('cx-codigo').textContent       = caixa.RM_CODIGO_CAIXA;
+        document.getElementById('cx-produto').textContent      = produto.RM_NOME_PRODUTO;
+        document.getElementById('cx-cod-produto').textContent  = produto.RM_CODIGO_PRODUTO;
+        document.getElementById('cx-lote').textContent         = caixa.RM_LOTE;
+        document.getElementById('cx-estoque-atual').textContent= estAtual.RM_NOME_ESTOQUE;
+
+        // Preencher o select de destino
+        const selectDestino = document.getElementById('destino');
+        estoques.forEach(est => {
+          // opcional: não oferecer o estoque atual como destino
+          if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) {
+            return;
+          }
+          const opt = document.createElement('option');
+          opt.value = est.RM_ID_ESTOQUE;
+          opt.textContent = est.RM_NOME_ESTOQUE;
+          selectDestino.appendChild(opt);
+        });
+
+        loadingEl.style.display = 'none';
+        dadosEl.style.display   = 'block';
+        msgEl.textContent       = '';
+      } catch (e) {
+        loadingEl.textContent = 'Erro ao carregar dados da caixa.';
+      }
+    }
+
+    async function registrarMovimentacao() {
+      const selectDestino = document.getElementById('destino');
+      const btn           = document.getElementById('btn-confirmar');
+      const msgEl         = document.getElementById('msg');
+
+      const idEstoqueDestino = selectDestino.value;
+
+      if (!idEstoqueDestino) {
+        msgEl.textContent = 'Selecione um destino.';
+        msgEl.className   = 'msg erro';
+        return;
+      }
+
+      if (!caixaAtual || !estoqueAtual) {
+        msgEl.textContent = 'Dados da caixa não carregados corretamente.';
+        msgEl.className   = 'msg erro';
+        return;
+      }
+
+      btn.disabled = true;
+      msgEl.textContent = 'Registrando movimentação...';
+      msgEl.className   = 'msg';
+
+      try {
+        // 1) Inserir em T_RM_MOVIMENTACOES
+        const { error: errMov } = await sb
+          .from('T_RM_MOVIMENTACOES')
+          .insert({
+            RM_ID_CAIXA:            caixaAtual.RM_ID_CAIXA,
+            RM_ID_ESTOQUE_ORIGEM:   estoqueAtual.RM_ID_ESTOQUE,
+            RM_ID_ESTOQUE_DESTINO:  Number(idEstoqueDestino),
+            RM_TIPO_MOVIMENTACAO:   'TRANSFERENCIA',
+            RM_USUARIO_RESPONSAVEL: 'APP_MOBILE'  // você pode trocar por usuário logado, se houver
+          });
+
+        if (errMov) {
+          msgEl.textContent = 'Erro ao registrar a movimentação.';
+          msgEl.className   = 'msg erro';
+          btn.disabled      = false;
+          return;
+        }
+
+        // 2) Atualizar estoque atual da caixa
+        const { error: errUpdate } = await sb
+          .from('T_RM_CAIXAS')
+          .update({ RM_ID_ESTOQUE_ATUAL: Number(idEstoqueDestino) })
+          .eq('RM_ID_CAIXA', caixaAtual.RM_ID_CAIXA);
+
+        if (errUpdate) {
+          msgEl.textContent = 'Movimentação registrada, mas não foi possível atualizar o estoque atual da caixa.';
+          msgEl.className   = 'msg erro';
+          btn.disabled      = false;
+          return;
+        }
+
+        msgEl.textContent = 'Movimentação registrada com sucesso.';
+        msgEl.className   = 'msg sucesso';
+      } catch (e) {
+        msgEl.textContent = 'Erro inesperado ao registrar movimentação.';
+        msgEl.className   = 'msg erro';
+        btn.disabled      = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarDadosCaixa();
+
+      const selectDestino = document.getElementById('destino');
+      const btnConfirmar  = document.getElementById('btn-confirmar');
+
+      selectDestino.addEventListener('change', () => {
+        btnConfirmar.disabled = !selectDestino.value;
+      });
+
+      btnConfirmar.addEventListener('click', registrarMovimentacao);
+    });
+  </script>
+</body>
+</html>

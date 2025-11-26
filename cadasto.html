@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cadastro de Caixa Retornável</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      font-weight: bold;
+      background: #1f6feb;
+      color: #ffffff;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #999999;
+      cursor: not-allowed;
+    }
+    .msg {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .erro {
+      color: #b00020;
+    }
+    .sucesso {
+      color: #1b5e20;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cadastro de Caixa Retornável</h1>
+
+    <label for="codigoCaixa">Código da caixa (para QR)</label>
+    <input id="codigoCaixa" type="text" placeholder="Ex: CX000123" />
+
+    <label for="lote">Lote</label>
+    <input id="lote" type="text" placeholder="Ex: LOTE2401" />
+
+    <label for="produto">Produto</label>
+    <select id="produto">
+      <option value="">Selecione o produto...</option>
+    </select>
+
+    <label for="estoque">Estoque inicial</label>
+    <select id="estoque">
+      <option value="">Selecione o estoque...</option>
+    </select>
+
+    <button id="btn-salvar">Salvar caixa</button>
+
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <!-- Supabase JS v2 via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Substitua pelos valores do seu projeto
+    const SUPABASE_URL = 'https://awgvthbcuyhboylhoqjq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
+
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function carregarProdutos() {
+      const selectProduto = document.getElementById('produto');
+      const { data, error } = await sb
+        .from('T_RM_PRODUTOS')
+        .select('RM_ID_PRODUTO, RM_NOME_PRODUTO, RM_CODIGO_PRODUTO')
+        .order('RM_NOME_PRODUTO', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      data.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.RM_ID_PRODUTO;
+        opt.textContent = `${p.RM_NOME_PRODUTO} (${p.RM_CODIGO_PRODUTO})`;
+        selectProduto.appendChild(opt);
+      });
+    }
+
+    async function carregarEstoques() {
+      const selectEstoque = document.getElementById('estoque');
+      const { data, error } = await sb
+        .from('T_RM_ESTOQUES')
+        .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
+        .order('RM_NOME_ESTOQUE', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      data.forEach((e) => {
+        const opt = document.createElement('option');
+        opt.value = e.RM_ID_ESTOQUE;
+        opt.textContent = e.RM_NOME_ESTOQUE;
+        selectEstoque.appendChild(opt);
+      });
+    }
+
+    async function salvarCaixa() {
+      const msgEl = document.getElementById('msg');
+      const btn   = document.getElementById('btn-salvar');
+
+      const codigoCaixa = document.getElementById('codigoCaixa').value.trim();
+      const lote        = document.getElementById('lote').value.trim();
+      const idProduto   = document.getElementById('produto').value;
+      const idEstoque   = document.getElementById('estoque').value;
+
+      msgEl.textContent = '';
+      msgEl.className = 'msg';
+
+      if (!codigoCaixa || !lote || !idProduto || !idEstoque) {
+        msgEl.textContent = 'Preencha todos os campos.';
+        msgEl.className   = 'msg erro';
+        return;
+      }
+
+      btn.disabled = true;
+      msgEl.textContent = 'Salvando...';
+
+      try {
+        const { error } = await sb
+          .from('T_RM_CAIXAS')
+          .insert({
+            RM_CODIGO_CAIXA: codigoCaixa,
+            RM_ID_PRODUTO: Number(idProduto),
+            RM_LOTE: lote,
+            RM_ID_ESTOQUE_ATUAL: Number(idEstoque),
+            // RM_STATUS_CAIXA e RM_DATA_CADASTRO usam os defaults definidos na tabela
+          });
+
+        if (error) {
+          console.error(error);
+          msgEl.textContent = 'Erro ao salvar a caixa.';
+          msgEl.className   = 'msg erro';
+          btn.disabled      = false;
+          return;
+        }
+
+        msgEl.textContent = 'Caixa cadastrada com sucesso.';
+        msgEl.className   = 'msg sucesso';
+
+        // Limpa o formulário
+        document.getElementById('codigoCaixa').value = '';
+        document.getElementById('lote').value = '';
+        document.getElementById('produto').value = '';
+        document.getElementById('estoque').value = '';
+      } catch (e) {
+        console.error(e);
+        msgEl.textContent = 'Erro inesperado ao salvar.';
+        msgEl.className   = 'msg erro';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarProdutos();
+      carregarEstoques();
+      document.getElementById('btn-salvar').addEventListener('click', salvarCaixa);
+    });
+  </script>
+</body>
+</html>
