@@ -11,6 +11,34 @@
       padding: 16px;
       background: #f5f5f5;
     }
+    .navbar {
+      background: #111827;
+      color: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .navbar-title {
+      font-weight: bold;
+      margin-right: 24px;
+      font-size: 15px;
+    }
+    .navbar a {
+      color: #d1d5db;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .navbar a.active {
+      background: #1f2937;
+      color: #ffffff;
+    }
+    .navbar a:hover {
+      background: #374151;
+      color: #ffffff;
+    }
     .card {
       background: #ffffff;
       border-radius: 8px;
@@ -67,6 +95,12 @@
   </style>
 </head>
 <body>
+  <div class="navbar">
+    <div class="navbar-title">Controle de Caixas</div>
+    <a href="index.html" id="nav-index">Início</a>
+    <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
+    <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
+  </div>
   <div class="card">
     <h1>Cadastro de Caixa Retornável</h1>
 

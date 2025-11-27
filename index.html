@@ -11,13 +11,43 @@
       padding: 16px;
       background: #f5f5f5;
     }
+
+    .navbar {
+      background: #111827;
+      color: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .navbar-title {
+      font-weight: bold;
+      margin-right: 24px;
+      font-size: 15px;
+    }
+    .navbar a {
+      color: #d1d5db;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .navbar a.active {
+      background: #1f2937;
+      color: #ffffff;
+    }
+    .navbar a:hover {
+      background: #374151;
+      color: #ffffff;
+    }
+
     .card {
       background: #ffffff;
       border-radius: 8px;
       padding: 16px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       max-width: 480px;
-      margin: 0 auto;
+      margin: 16px auto;
     }
     h1 {
       font-size: 20px;
@@ -34,7 +64,7 @@
       font-weight: bold;
       font-size: 14px;
     }
-    select, button {
+    select, button, input {
       width: 100%;
       padding: 10px;
       font-size: 16px;
@@ -64,13 +94,26 @@
     .sucesso {
       color: #1b5e20;
     }
+    #qrcode {
+      margin-top: 16px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
+
+  <div class="navbar">
+    <div class="navbar-title">Controle de Caixas</div>
+    <a href="index.html" id="nav-index">Início</a>
+    <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
+    <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
+  </div>
+
+  <!-- CARD 1: Movimentar Caixa (usado quando a página é aberta via QR com ?codigo_caixa=...) -->
   <div class="card">
     <h1>Movimentar Caixa</h1>
 
-    <div id="loading" class="info">Carregando informações...</div>
+    <div id="loading" class="info">Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa, os dados aparecerão aqui.</div>
 
     <div id="dados" style="display:none;">
       <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
@@ -89,8 +132,30 @@
     </div>
   </div>
 
+  <!-- CARD 2: Gerar QR Code para uma caixa -->
+  <div class="card">
+    <h1>Gerar QR Code da Caixa</h1>
+    <p class="info">
+      Informe o código de uma caixa já cadastrada (ex: 00001) para gerar o QR usado na movimentação.
+    </p>
+
+    <label for="qr-codigo">Código da caixa</label>
+    <input id="qr-codigo" type="text" placeholder="Ex: 00001" />
+
+    <button id="btn-gerar-qr">Gerar QR Code</button>
+    <div id="qrcode"></div>
+  </div>
+
+  <!-- marca item ativo da navbar -->
+  <script>
+    document.getElementById('nav-index').classList.add('active');
+  </script>
+
   <!-- Supabase JS v2 via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Biblioteca de QR Code -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
   <script>
     // 1. Configuração do Supabase
     const SUPABASE_URL = 'https://awgvthbcuyhboylhoqjq.supabase.co';
@@ -98,9 +163,9 @@
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Variáveis globais para reutilizar
-    let caixaAtual = null;          // objeto com dados da caixa
-    let estoqueAtual = null;        // objeto com dados do estoque atual
+    // Variáveis globais
+    let caixaAtual = null;
+    let estoqueAtual = null;
 
     async function carregarDadosCaixa() {
       const loadingEl = document.getElementById('loading');
@@ -110,8 +175,9 @@
       const params = new URLSearchParams(window.location.search);
       const codigoCaixa = params.get('codigo_caixa');
 
+      // Se a página não foi aberta com ?codigo_caixa, não tenta carregar nada
       if (!codigoCaixa) {
-        loadingEl.textContent = 'Código da caixa não informado na URL.';
+        loadingEl.textContent = 'Esta tela é usada pelo QR Code. Abra pelo QR da caixa para movimentar.';
         return;
       }
 
@@ -178,9 +244,7 @@
         const selectDestino = document.getElementById('destino');
         estoques.forEach(est => {
           // opcional: não oferecer o estoque atual como destino
-          if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) {
-            return;
-          }
+          if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) return;
           const opt = document.createElement('option');
           opt.value = est.RM_ID_ESTOQUE;
           opt.textContent = est.RM_NOME_ESTOQUE;
@@ -191,6 +255,7 @@
         dadosEl.style.display   = 'block';
         msgEl.textContent       = '';
       } catch (e) {
+        console.error(e);
         loadingEl.textContent = 'Erro ao carregar dados da caixa.';
       }
     }
@@ -227,10 +292,11 @@
             RM_ID_ESTOQUE_ORIGEM:   estoqueAtual.RM_ID_ESTOQUE,
             RM_ID_ESTOQUE_DESTINO:  Number(idEstoqueDestino),
             RM_TIPO_MOVIMENTACAO:   'TRANSFERENCIA',
-            RM_USUARIO_RESPONSAVEL: 'APP_MOBILE'  // você pode trocar por usuário logado, se houver
+            RM_USUARIO_RESPONSAVEL: 'APP_MOBILE'
           });
 
         if (errMov) {
+          console.error(errMov);
           msgEl.textContent = 'Erro ao registrar a movimentação.';
           msgEl.className   = 'msg erro';
           btn.disabled      = false;
@@ -244,6 +310,7 @@
           .eq('RM_ID_CAIXA', caixaAtual.RM_ID_CAIXA);
 
         if (errUpdate) {
+          console.error(errUpdate);
           msgEl.textContent = 'Movimentação registrada, mas não foi possível atualizar o estoque atual da caixa.';
           msgEl.className   = 'msg erro';
           btn.disabled      = false;
@@ -253,10 +320,66 @@
         msgEl.textContent = 'Movimentação registrada com sucesso.';
         msgEl.className   = 'msg sucesso';
       } catch (e) {
+        console.error(e);
         msgEl.textContent = 'Erro inesperado ao registrar movimentação.';
         msgEl.className   = 'msg erro';
         btn.disabled      = false;
       }
+    }
+
+    // 2. Geração de QR Code
+    const inputQr = document.getElementById('qr-codigo');
+    const btnQr   = document.getElementById('btn-gerar-qr');
+    const qrDiv   = document.getElementById('qrcode');
+
+    // URL base desta própria página (sem query string)
+    const BASE_URL_MOVIMENTAR = window.location.href.split('?')[0];
+
+    function gerarQr() {
+      const codigo = inputQr.value.trim();
+      qrDiv.innerHTML = '';
+
+      if (!codigo) {
+        alert('Informe o código da caixa.');
+        return;
+      }
+
+      const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
+
+      const p = document.createElement('p');
+      p.className = 'info';
+      p.textContent = url;
+      qrDiv.appendChild(p);
+
+     function gerarQr() {
+  const codigo = inputQr.value.trim();
+  qrDiv.innerHTML = '';
+
+  if (!codigo) {
+    alert('Informe o código da caixa.');
+    return;
+  }
+
+  const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
+
+  const p = document.createElement('p');
+  p.className = 'info';
+  p.textContent = url;
+  qrDiv.appendChild(p);
+
+  // cria um canvas e desenha o QR nele
+  const canvas = document.createElement('canvas');
+
+  QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
+    if (err) {
+      console.error(err);
+      alert('Erro ao gerar QR Code.');
+      return;
+    }
+    qrDiv.appendChild(canvas);
+  });
+}
+
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -270,6 +393,7 @@
       });
 
       btnConfirmar.addEventListener('click', registrarMovimentacao);
+      btnQr.addEventListener('click', gerarQr);
     });
   </script>
 </body>
