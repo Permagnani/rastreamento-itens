@@ -113,7 +113,9 @@
   <div class="card">
     <h1>Movimentar Caixa</h1>
 
-    <div id="loading" class="info">Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa, os dados aparecerão aqui.</div>
+    <div id="loading" class="info">
+      Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa, os dados aparecerão aqui.
+    </div>
 
     <div id="dados" style="display:none;">
       <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
@@ -177,7 +179,8 @@
 
       // Se a página não foi aberta com ?codigo_caixa, não tenta carregar nada
       if (!codigoCaixa) {
-        loadingEl.textContent = 'Esta tela é usada pelo QR Code. Abra pelo QR da caixa para movimentar.';
+        loadingEl.textContent =
+          'Esta tela é usada pelo QR Code. Abra pelo QR da caixa para movimentar.';
         return;
       }
 
@@ -234,11 +237,11 @@
         }
 
         // Preencher informações na tela
-        document.getElementById('cx-codigo').textContent       = caixa.RM_CODIGO_CAIXA;
-        document.getElementById('cx-produto').textContent      = produto.RM_NOME_PRODUTO;
-        document.getElementById('cx-cod-produto').textContent  = produto.RM_CODIGO_PRODUTO;
-        document.getElementById('cx-lote').textContent         = caixa.RM_LOTE;
-        document.getElementById('cx-estoque-atual').textContent= estAtual.RM_NOME_ESTOQUE;
+        document.getElementById('cx-codigo').textContent        = caixa.RM_CODIGO_CAIXA;
+        document.getElementById('cx-produto').textContent       = produto.RM_NOME_PRODUTO;
+        document.getElementById('cx-cod-produto').textContent   = produto.RM_CODIGO_PRODUTO;
+        document.getElementById('cx-lote').textContent          = caixa.RM_LOTE;
+        document.getElementById('cx-estoque-atual').textContent = estAtual.RM_NOME_ESTOQUE;
 
         // Preencher o select de destino
         const selectDestino = document.getElementById('destino');
@@ -311,7 +314,8 @@
 
         if (errUpdate) {
           console.error(errUpdate);
-          msgEl.textContent = 'Movimentação registrada, mas não foi possível atualizar o estoque atual da caixa.';
+          msgEl.textContent =
+            'Movimentação registrada, mas não foi possível atualizar o estoque atual da caixa.';
           msgEl.className   = 'msg erro';
           btn.disabled      = false;
           return;
@@ -351,35 +355,17 @@
       p.textContent = url;
       qrDiv.appendChild(p);
 
-     function gerarQr() {
-  const codigo = inputQr.value.trim();
-  qrDiv.innerHTML = '';
+      // cria um canvas e desenha o QR nele
+      const canvas = document.createElement('canvas');
 
-  if (!codigo) {
-    alert('Informe o código da caixa.');
-    return;
-  }
-
-  const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
-
-  const p = document.createElement('p');
-  p.className = 'info';
-  p.textContent = url;
-  qrDiv.appendChild(p);
-
-  // cria um canvas e desenha o QR nele
-  const canvas = document.createElement('canvas');
-
-  QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-    if (err) {
-      console.error(err);
-      alert('Erro ao gerar QR Code.');
-      return;
-    }
-    qrDiv.appendChild(canvas);
-  });
-}
-
+      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
+        if (err) {
+          console.error(err);
+          alert('Erro ao gerar QR Code.');
+          return;
+        }
+        qrDiv.appendChild(canvas);
+      });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
