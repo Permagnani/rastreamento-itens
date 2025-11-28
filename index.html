@@ -4,110 +4,20 @@
   <meta charset="UTF-8" />
   <title>Movimentar Item</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 16px;
-      background: #f5f5f5;
-    }
-
-    .navbar {
-      background: #111827;
-      color: #ffffff;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .navbar-title {
-      font-weight: bold;
-      margin-right: 24px;
-      font-size: 15px;
-    }
-    .navbar a {
-      color: #d1d5db;
-      text-decoration: none;
-      font-size: 14px;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .navbar a.active {
-      background: #1f2937;
-      color: #ffffff;
-    }
-    .navbar a:hover {
-      background: #374151;
-      color: #ffffff;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      max-width: 480px;
-      margin: 16px auto;
-    }
-    h1 {
-      font-size: 20px;
-      margin-bottom: 12px;
-    }
-    .info {
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-    label {
-      display: block;
-      margin-top: 12px;
-      margin-bottom: 4px;
-      font-weight: bold;
-      font-size: 14px;
-    }
-    select, button, input {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-    button {
-      margin-top: 16px;
-      background: #1f6feb;
-      color: #ffffff;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:disabled {
-      background: #999999;
-      cursor: not-allowed;
-    }
-    .msg {
-      margin-top: 12px;
-      font-size: 14px;
-    }
-    .erro {
-      color: #b00020;
-    }
-    .sucesso {
-      color: #1b5e20;
-    }
-    #qrcode {
-      margin-top: 16px;
-      text-align: center;
-    }
-  </style>
+  <link rel="stylesheet" href="style/main.css" />
 </head>
 <body>
 
-  <div class="navbar">
-    <div class="navbar-title">Controle de Caixas</div>
-    <a href="index.html" id="nav-index">Início</a>
-    <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
-    <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
-  </div>
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="navbar-title">Controle de Caixas</div>
+      <div class="navbar-links">
+        <a href="index.html" id="nav-index">Início</a>
+        <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
+        <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
+      </div>
+    </div>
+  </nav>
 
   <!-- CARD 1: Movimentar Caixa (usado quando a página é aberta via QR com ?codigo_caixa=...) -->
   <div class="card">
@@ -156,8 +66,7 @@
   <!-- Supabase JS v2 via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Biblioteca de QR Code (qrcodejs) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script>
     // 1. Configuração do Supabase
@@ -247,7 +156,6 @@
         // Preencher o select de destino
         const selectDestino = document.getElementById('destino');
         estoques.forEach(est => {
-          // opcional: não oferecer o estoque atual como destino
           if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) return;
           const opt = document.createElement('option');
           opt.value = est.RM_ID_ESTOQUE;
@@ -288,7 +196,6 @@
       msgEl.className   = 'msg';
 
       try {
-        // 1) Inserir em T_RM_MOVIMENTACOES
         const { error: errMov } = await sb
           .from('T_RM_MOVIMENTACOES')
           .insert({
@@ -307,7 +214,6 @@
           return;
         }
 
-        // 2) Atualizar estoque atual da caixa
         const { error: errUpdate } = await sb
           .from('T_RM_CAIXAS')
           .update({ RM_ID_ESTOQUE_ATUAL: Number(idEstoqueDestino) })
@@ -337,40 +243,35 @@
     const btnQr   = document.getElementById('btn-gerar-qr');
     const qrDiv   = document.getElementById('qrcode');
 
-    // URL base desta própria página (sem query string)
     const BASE_URL_MOVIMENTAR = window.location.href.split('?')[0];
 
     function gerarQr() {
-  const codigo = inputQr.value.trim();
-  qrDiv.innerHTML = '';
+      const codigo = inputQr.value.trim();
+      qrDiv.innerHTML = '';
 
-  if (!codigo) {
-    alert('Informe o código da caixa.');
-    return;
-  }
+      if (!codigo) {
+        alert('Informe o código da caixa.');
+        return;
+      }
 
-  const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
+      const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
 
-  // mostra a URL em texto (opcional)
-  const p = document.createElement('p');
-  p.className = 'info';
-  p.textContent = url;
-  qrDiv.appendChild(p);
+      const p = document.createElement('p');
+      p.className = 'info';
+      p.textContent = url;
+      qrDiv.appendChild(p);
 
-  // container para o QR
-  const qrContainer = document.createElement('div');
-  qrDiv.appendChild(qrContainer);
+      const qrContainer = document.createElement('div');
+      qrDiv.appendChild(qrContainer);
 
-  // gera o QR Code com qrcodejs
-  new QRCode(qrContainer, {
-    text: url,
-    width: 220,
-    height: 220,
-    correctLevel: QRCode.CorrectLevel.H
-  });
-}
+      new QRCode(qrContainer, {
+        text: url,
+        width: 220,
+        height: 220,
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
 
-    
     document.addEventListener('DOMContentLoaded', () => {
       carregarDadosCaixa();
 

@@ -4,127 +4,19 @@
   <meta charset="UTF-8" />
   <title>Visualizar Estoque - Controle de Caixas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f5f5f5;
-    }
-    .navbar {
-      background: #111827;
-      color: #ffffff;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .navbar-title {
-      font-weight: bold;
-      margin-right: 24px;
-      font-size: 15px;
-    }
-    .navbar a {
-      color: #d1d5db;
-      text-decoration: none;
-      font-size: 14px;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .navbar a.active {
-      background: #1f2937;
-      color: #ffffff;
-    }
-    .navbar a:hover {
-      background: #374151;
-      color: #ffffff;
-    }
-    .container {
-      padding: 16px;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-    h1 {
-      font-size: 20px;
-      margin-bottom: 12px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      font-size: 13px;
-    }
-    th, td {
-      padding: 8px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-    }
-    th {
-      background: #f3f4f6;
-      font-weight: bold;
-    }
-    tr:last-child td {
-      border-bottom: none;
-    }
-    .status-ATIVA {
-      color: #065f46;
-      font-weight: bold;
-    }
-    .status-INATIVA,
-    .status-DANIFICADA,
-    .status-PERDIDA {
-      color: #b91c1c;
-      font-weight: bold;
-    }
-    .btn-historico {
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      background: #1f6feb;
-      color: #ffffff;
-    }
-    .msg {
-      margin: 12px 0;
-      font-size: 14px;
-    }
-    .erro {
-      color: #b00020;
-    }
-
-    /* linha de histórico logo abaixo da caixa */
-    .linha-historico td {
-      background: #f9fafb;
-      padding: 0;
-    }
-    .painel-historico-inner {
-      padding: 10px 12px;
-      border-top: 1px solid #e5e7eb;
-      font-size: 13px;
-    }
-    .painel-historico-inner h2 {
-      font-size: 14px;
-      margin: 0 0 8px 0;
-    }
-    .historico-item {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 6px 0;
-    }
-    .historico-item:last-child {
-      border-bottom: none;
-    }
-  </style>
+  <link rel="stylesheet" href="style/main.css" />
 </head>
 <body>
-  <div class="navbar">
-    <div class="navbar-title">Controle de Caixas</div>
-    <a href="index.html" id="nav-index">Início</a>
-    <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
-    <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
-  </div>
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="navbar-title">Controle de Caixas</div>
+      <div class="navbar-links">
+        <a href="index.html" id="nav-index">Início</a>
+        <a href="cadastro.html" id="nav-cadastro">Cadastro de Item</a>
+        <a href="estoque.html" id="nav-estoque">Visualizar Estoque</a>
+      </div>
+    </div>
+  </nav>
 
   <div class="container">
     <h1>Caixas e Estoque Atual</h1>
@@ -141,21 +33,20 @@
         </tr>
       </thead>
       <tbody>
-        <!-- Linhas geradas via JavaScript -->
+        <!-- linhas geradas via JavaScript -->
       </tbody>
     </table>
   </div>
 
   <script>
-    // marca item ativo da navbar
     document.getElementById('nav-estoque').classList.add('active');
   </script>
 
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const SUPABASE_URL = 'https://awgvthbcuyhboylhoqjq.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
+    const SUPABASE_ANON_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
 
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -166,7 +57,6 @@
     async function carregarReferencias() {
       const msgEl = document.getElementById('msg');
 
-      // Produtos
       const { data: produtos, error: errProd } = await sb
         .from('T_RM_PRODUTOS')
         .select('RM_ID_PRODUTO, RM_NOME_PRODUTO');
@@ -182,7 +72,6 @@
         mapaProdutos[p.RM_ID_PRODUTO] = p.RM_NOME_PRODUTO;
       });
 
-      // Estoques
       const { data: estoques, error: errEst } = await sb
         .from('T_RM_ESTOQUES')
         .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE');
@@ -264,11 +153,9 @@
     }
 
     async function abrirHistorico(idCaixa, codigoCaixa, linhaTabela) {
-      // remove qualquer histórico aberto antes
       const antiga = document.querySelector('.linha-historico');
       if (antiga) antiga.remove();
 
-      // cria a nova linha logo abaixo da linha da caixa
       const trHist = document.createElement('tr');
       trHist.className = 'linha-historico';
       const td = document.createElement('td');
@@ -288,7 +175,6 @@
 
       const lista = painel.querySelector('.hist-lista');
 
-      // busca movimentações no Supabase
       const { data: movs, error } = await sb
         .from('T_RM_MOVIMENTACOES')
         .select('RM_DATA_MOVIMENTACAO, RM_TIPO_MOVIMENTACAO, RM_ID_ESTOQUE_ORIGEM, RM_ID_ESTOQUE_DESTINO, RM_USUARIO_RESPONSAVEL')
