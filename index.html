@@ -155,8 +155,9 @@
 
   <!-- Supabase JS v2 via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Biblioteca de QR Code -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- Biblioteca de QR Code (qrcodejs) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 
   <script>
     // 1. Configuração do Supabase
@@ -340,34 +341,36 @@
     const BASE_URL_MOVIMENTAR = window.location.href.split('?')[0];
 
     function gerarQr() {
-      const codigo = inputQr.value.trim();
-      qrDiv.innerHTML = '';
+  const codigo = inputQr.value.trim();
+  qrDiv.innerHTML = '';
 
-      if (!codigo) {
-        alert('Informe o código da caixa.');
-        return;
-      }
+  if (!codigo) {
+    alert('Informe o código da caixa.');
+    return;
+  }
 
-      const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
+  const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
 
-      const p = document.createElement('p');
-      p.className = 'info';
-      p.textContent = url;
-      qrDiv.appendChild(p);
+  // mostra a URL em texto (opcional)
+  const p = document.createElement('p');
+  p.className = 'info';
+  p.textContent = url;
+  qrDiv.appendChild(p);
 
-      // cria um canvas e desenha o QR nele
-      const canvas = document.createElement('canvas');
+  // container para o QR
+  const qrContainer = document.createElement('div');
+  qrDiv.appendChild(qrContainer);
 
-      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-        if (err) {
-          console.error(err);
-          alert('Erro ao gerar QR Code.');
-          return;
-        }
-        qrDiv.appendChild(canvas);
-      });
-    }
+  // gera o QR Code com qrcodejs
+  new QRCode(qrContainer, {
+    text: url,
+    width: 220,
+    height: 220,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
 
+    
     document.addEventListener('DOMContentLoaded', () => {
       carregarDadosCaixa();
 
