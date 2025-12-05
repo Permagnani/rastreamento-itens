@@ -422,3 +422,121 @@ td.acoes-centro {
   text-align: center;
 }
 
+/* -------- VISUALIZAÇÃO EM MOSAICO (ESTOQUE) -------- */
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.view-toggle-btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  cursor: pointer;
+  color: #374151;
+}
+
+.view-toggle-btn.ativo {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary-dark);
+}
+
+.estoque-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.estoque-filtros > * {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* grid de cards das caixas */
+.caixas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* cada quadradinho (card) do mosaico */
+.caixa-card {
+  border-radius: 14px;
+  padding: 10px 10px 12px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* topo do card: código + status */
+.caixa-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.caixa-codigo {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* nome do produto */
+.caixa-produto {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* linha do estoque */
+.caixa-estoque-linha {
+  margin-top: 4px;
+}
+
+/* badge de estoque */
+.badge-estoque {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+/* badge de status dentro do card */
+.badge-status {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid transparent;
+}
+
+.badge-status.status-ATIVA {
+  color: var(--success);
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+.badge-status.status-INATIVA,
+.badge-status.status-DANIFICADA,
+.badge-status.status-PERDIDA {
+  color: var(--error);
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+/* responsivo */
+@media (max-width: 640px) {
+  .caixas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}

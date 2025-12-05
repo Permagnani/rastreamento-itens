@@ -22,9 +22,19 @@
     <h1>Caixas e Estoque Atual</h1>
     <div id="msg" class="msg"></div>
 
-    <!-- FILTROS -->
-    <div class="filtros-estoque">
-      <div class="filtro-item">
+    <!-- TOGGLE TABELA / MOSAICO -->
+    <div class="view-toggle">
+      <button id="btn-view-tabela" class="view-toggle-btn ativo">
+        Tabela
+      </button>
+      <button id="btn-view-mosaico" class="view-toggle-btn">
+        Mosaico
+      </button>
+    </div>
+
+    <!-- FILTROS (valem para os dois modos) -->
+    <div class="estoque-filtros">
+      <div>
         <label for="filtro-texto">Buscar</label>
         <input
           id="filtro-texto"
@@ -33,14 +43,14 @@
         />
       </div>
 
-      <div class="filtro-item">
+      <div>
         <label for="filtro-estoque">Estoque</label>
         <select id="filtro-estoque">
           <option value="">Todos</option>
         </select>
       </div>
 
-      <div class="filtro-item">
+      <div>
         <label for="filtro-status">Status</label>
         <select id="filtro-status">
           <option value="">Todos</option>
@@ -52,20 +62,30 @@
       </div>
     </div>
 
-    <table id="tabela-caixas">
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Produto</th>
-          <th>Estoque atual</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Linhas geradas via JavaScript -->
-      </tbody>
-    </table>
+    <!-- MODO TABELA -->
+    <div id="container-tabela">
+      <table id="tabela-caixas">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Produto</th>
+            <th>Estoque atual</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Linhas geradas via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MODO MOSAICO -->
+    <div id="container-mosaico" style="display:none;">
+      <div id="caixas-grid" class="caixas-grid">
+        <!-- Cards gerados via JavaScript -->
+      </div>
+    </div>
   </div>
 
   <script>
@@ -168,7 +188,7 @@
       msgEl.textContent = '';
     }
 
-    // --------- Preencher tabela ----------
+    // --------- TABELA ----------
     function preencherTabelaCaixas(caixas) {
       const tbody = document.querySelector('#tabela-caixas tbody');
       tbody.innerHTML = '';
@@ -209,10 +229,68 @@
       });
     }
 
-    // --------- Aplicar filtros ----------
+    // --------- MOSAICO: cor de fundo por estoque ----------
+    function getBgColorPorEstoque(nomeEstoque) {
+      if (!nomeEstoque) return '#e5e7eb';
+
+      const n = nomeEstoque.toLowerCase();
+
+      if (n.includes('câmara') || n.includes('camara')) {
+        return '#dbeafe'; // câmara fria – azul claro
+      }
+      if (n.includes('freezer')) {
+        return '#fee2e2'; // freezer – rosado
+      }
+      if (n.includes('seco')) {
+        return '#dcfce7'; // estoque seco – verde claro
+      }
+      if (n.includes('produção') || n.includes('producao')) {
+        return '#fef3c7'; // produção – amarelo claro
+      }
+
+       if (n.includes('liberdade')) {
+        return '#fecaca'; // azul bem clarinho só pra Liberdade
+      }
+      return '#e5e7eb'; // padrão
+    }
+
+    // --------- MOSAICO: gerar cards ----------
+    function gerarMosaicoCaixas(caixas) {
+      const grid = document.getElementById('caixas-grid');
+      if (!grid) return;
+
+      grid.innerHTML = '';
+
+      caixas.forEach((cx) => {
+        const nomeProduto = mapaProdutos[cx.RM_ID_PRODUTO] || '-';
+        const nomeEstoque = mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '-';
+
+        const card = document.createElement('div');
+        card.className = 'caixa-card';
+        card.style.backgroundColor = getBgColorPorEstoque(nomeEstoque);
+
+        card.innerHTML = `
+          <div class="caixa-card-top">
+            <div class="caixa-codigo">${cx.RM_CODIGO_CAIXA}</div>
+            <span class="badge-status status-${cx.RM_STATUS_CAIXA}">
+              ${cx.RM_STATUS_CAIXA}
+            </span>
+          </div>
+          <div class="caixa-produto">${nomeProduto}</div>
+          <div class="caixa-estoque-linha">
+            <span class="badge-estoque">${nomeEstoque}</span>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    // --------- Aplicar filtros (para tabela + mosaico) ----------
     function aplicarFiltros() {
       if (!caixasOriginais || caixasOriginais.length === 0) {
         preencherTabelaCaixas([]);
+        gerarMosaicoCaixas([]);
         return;
       }
 
@@ -246,14 +324,20 @@
         return true;
       });
 
+      // atualiza os dois modos
       preencherTabelaCaixas(filtradas);
+      gerarMosaicoCaixas(filtradas);
     }
 
     // --------- Histórico (abre/fecha embaixo da linha) ----------
     async function abrirHistorico(idCaixa, codigoCaixa, linhaTabela) {
       // Se já existe um histórico logo abaixo dessa linha, remove (toggle)
       const proxima = linhaTabela.nextSibling;
-      if (proxima && proxima.classList && proxima.classList.contains('linha-historico')) {
+      if (
+        proxima &&
+        proxima.classList &&
+        proxima.classList.contains('linha-historico')
+      ) {
         proxima.remove();
         return;
       }
@@ -342,8 +426,29 @@
       if (filtroStatus) {
         filtroStatus.addEventListener('change', aplicarFiltros);
       }
+
+      // Toggle Tabela / Mosaico
+      const btnTabela = document.getElementById('btn-view-tabela');
+      const btnMosaico = document.getElementById('btn-view-mosaico');
+      const contTabela = document.getElementById('container-tabela');
+      const contMosaico = document.getElementById('container-mosaico');
+
+      if (btnTabela && btnMosaico && contTabela && contMosaico) {
+        btnTabela.addEventListener('click', () => {
+          btnTabela.classList.add('ativo');
+          btnMosaico.classList.remove('ativo');
+          contTabela.style.display = 'block';
+          contMosaico.style.display = 'none';
+        });
+
+        btnMosaico.addEventListener('click', () => {
+          btnMosaico.classList.add('ativo');
+          btnTabela.classList.remove('ativo');
+          contTabela.style.display = 'none';
+          contMosaico.style.display = 'block';
+        });
+      }
     });
   </script>
 </body>
 </html>
-
