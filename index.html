@@ -19,28 +19,68 @@
     </div>
   </nav>
 
-  <!-- CARD 1: Movimentar Caixa (usado quando a página é aberta via QR com ?codigo_caixa=...) -->
+  <!-- CARD 1: Movimentar Caixa(s) -->
   <div class="card">
-    <h1>Movimentar Caixa</h1>
+    <h1>Movimentar Caixas</h1>
+    <p class="info">
+      Escolha se deseja movimentar várias caixas informando os códigos
+      ou movimentar a caixa atual aberta via QR Code.
+    </p>
 
-    <div id="loading" class="info">
-      Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa, os dados aparecerão aqui.
+    <!-- Toggle de modo -->
+    <div class="mov-toggle">
+      <button type="button" id="btn-modo-lista" class="mov-toggle-btn ativo">
+        Por códigos (várias caixas)
+      </button>
+      <button type="button" id="btn-modo-qr" class="mov-toggle-btn">
+        Caixa atual (QR)
+      </button>
     </div>
 
-    <div id="dados" style="display:none;">
-      <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
-      <div class="info"><strong>Produto:</strong> <span id="cx-produto"></span></div>
-      <div class="info"><strong>Cód. produto:</strong> <span id="cx-cod-produto"></span></div>
-      <div class="info"><strong>Lote:</strong> <span id="cx-lote"></span></div>
-      <div class="info"><strong>Estoque atual:</strong> <span id="cx-estoque-atual"></span></div>
+    <!-- MODO 1: por lista de códigos -->
+    <div id="mov-por-lista">
+      <label for="codigos-lote">Códigos das caixas</label>
+      <p class="info">
+        Digite ou escaneie os QR Codes. Cada código fica em uma linha
+        (ex: 00001, 00002, 00003).
+      </p>
+      <textarea
+        id="codigos-lote"
+        rows="4"
+        placeholder="00001&#10;00002&#10;00003"
+      ></textarea>
 
-      <label for="destino">Novo destino</label>
-      <select id="destino">
+      <label for="destino-lote">Novo destino</label>
+      <select id="destino-lote">
         <option value="">Selecione o destino...</option>
       </select>
 
-      <button id="btn-confirmar" disabled>Confirmar movimentação</button>
-      <div id="msg" class="msg"></div>
+      <button id="btn-mover-lote">Mover caixas selecionadas</button>
+      <div id="msg-lote" class="msg"></div>
+    </div>
+
+    <!-- MODO 2: caixa atual (via QR) -->
+    <div id="mov-por-qr" style="display:none;">
+      <div id="loading" class="info">
+        Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa,
+        os dados aparecerão aqui.
+      </div>
+
+      <div id="dados" style="display:none;">
+        <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
+        <div class="info"><strong>Produto:</strong> <span id="cx-produto"></span></div>
+        <div class="info"><strong>Cód. produto:</strong> <span id="cx-cod-produto"></span></div>
+        <div class="info"><strong>Lote:</strong> <span id="cx-lote"></span></div>
+        <div class="info"><strong>Estoque atual:</strong> <span id="cx-estoque-atual"></span></div>
+
+        <label for="destino">Novo destino</label>
+        <select id="destino">
+          <option value="">Selecione o destino...</option>
+        </select>
+
+        <button id="btn-confirmar" disabled>Confirmar movimentação</button>
+        <div id="msg" class="msg"></div>
+      </div>
     </div>
   </div>
 
@@ -79,15 +119,149 @@
     let caixaAtual = null;
     let estoqueAtual = null;
 
+    // ---------- MODO LOTE: carregar estoques ----------
+    async function carregarEstoquesLote() {
+      const selectLote = document.getElementById('destino-lote');
+      if (!selectLote) return;
+
+      const { data: estoques, error } = await sb
+        .from('T_RM_ESTOQUES')
+        .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
+        .order('RM_NOME_ESTOQUE', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        const msgLote = document.getElementById('msg-lote');
+        if (msgLote) {
+          msgLote.textContent = 'Erro ao carregar lista de estoques.';
+          msgLote.className = 'msg erro';
+        }
+        return;
+      }
+
+      estoques.forEach(est => {
+        const opt = document.createElement('option');
+        opt.value = est.RM_ID_ESTOQUE;
+        opt.textContent = est.RM_NOME_ESTOQUE;
+        selectLote.appendChild(opt);
+      });
+    }
+
+    // ---------- MODO LOTE: registrar movimentação ----------
+    async function registrarMovimentacaoLote() {
+      const textarea = document.getElementById('codigos-lote');
+      const selectDestino = document.getElementById('destino-lote');
+      const msgLote = document.getElementById('msg-lote');
+      const btnLote = document.getElementById('btn-mover-lote');
+
+      msgLote.className = 'msg';
+      msgLote.textContent = '';
+
+      if (!textarea || !selectDestino) return;
+
+      // Aceita uma por linha, vírgula ou ponto e vírgula
+      let codigos = textarea.value
+        .split(/\r?\n|,|;/)
+        .map(c => c.trim())
+        .filter(c => c !== '');
+
+      if (codigos.length === 0) {
+        msgLote.textContent = 'Informe pelo menos um código de caixa.';
+        msgLote.classList.add('erro');
+        return;
+      }
+
+      const idEstoqueDestino = selectDestino.value;
+      if (!idEstoqueDestino) {
+        msgLote.textContent = 'Selecione o estoque de destino.';
+        msgLote.classList.add('erro');
+        return;
+      }
+
+      btnLote.disabled = true;
+      msgLote.textContent = 'Registrando movimentações...';
+
+      const ok = [];
+      const naoEncontradas = [];
+      const erros = [];
+
+      for (const codigo of codigos) {
+        try {
+          // 1) Buscar a caixa pelo código
+          const { data: caixa, error: errCaixa } = await sb
+            .from('T_RM_CAIXAS')
+            .select('RM_ID_CAIXA, RM_ID_ESTOQUE_ATUAL')
+            .eq('RM_CODIGO_CAIXA', codigo)
+            .single();
+
+          if (errCaixa || !caixa) {
+            naoEncontradas.push(codigo);
+            continue;
+          }
+
+          // 2) Registrar movimentação
+          const { error: errMov } = await sb
+            .from('T_RM_MOVIMENTACOES')
+            .insert({
+              RM_ID_CAIXA: caixa.RM_ID_CAIXA,
+              RM_ID_ESTOQUE_ORIGEM: caixa.RM_ID_ESTOQUE_ATUAL,
+              RM_ID_ESTOQUE_DESTINO: Number(idEstoqueDestino),
+              RM_TIPO_MOVIMENTACAO: 'TRANSFERENCIA',
+              RM_USUARIO_RESPONSAVEL: 'APP_WEB_LOTE'
+            });
+
+          if (errMov) {
+            console.error(errMov);
+            erros.push(codigo);
+            continue;
+          }
+
+          // 3) Atualizar estoque atual da caixa
+          const { error: errUpdate } = await sb
+            .from('T_RM_CAIXAS')
+            .update({ RM_ID_ESTOQUE_ATUAL: Number(idEstoqueDestino) })
+            .eq('RM_ID_CAIXA', caixa.RM_ID_CAIXA);
+
+          if (errUpdate) {
+            console.error(errUpdate);
+            erros.push(codigo);
+            continue;
+          }
+
+          ok.push(codigo);
+        } catch (e) {
+          console.error(e);
+          erros.push(codigo);
+        }
+      }
+
+      let msg = '';
+      if (ok.length) {
+        msg += `Movimentação realizada para as caixas: ${ok.join(', ')}.\n`;
+      }
+      if (naoEncontradas.length) {
+        msg += `Não encontradas: ${naoEncontradas.join(', ')}.\n`;
+      }
+      if (erros.length) {
+        msg += `Ocorreram erros em: ${erros.join(', ')}.`;
+      }
+
+      msgLote.textContent = msg.trim();
+      msgLote.classList.add(ok.length && !erros.length ? 'sucesso' : 'erro');
+      btnLote.disabled = false;
+    }
+
+    // ---------- MODO QR: carregar dados da caixa ----------
     async function carregarDadosCaixa() {
       const loadingEl = document.getElementById('loading');
       const dadosEl   = document.getElementById('dados');
       const msgEl     = document.getElementById('msg');
 
+      if (!loadingEl) return;
+
       const params = new URLSearchParams(window.location.search);
       const codigoCaixa = params.get('codigo_caixa');
 
-      // Se a página não foi aberta com ?codigo_caixa, não tenta carregar nada
       if (!codigoCaixa) {
         loadingEl.textContent =
           'Esta tela é usada pelo QR Code. Abra pelo QR da caixa para movimentar.';
@@ -95,7 +269,6 @@
       }
 
       try {
-        // Buscar caixa pelo código
         const { data: caixa, error: errCaixa } = await sb
           .from('T_RM_CAIXAS')
           .select('RM_ID_CAIXA, RM_CODIGO_CAIXA, RM_ID_PRODUTO, RM_LOTE, RM_ID_ESTOQUE_ATUAL')
@@ -109,7 +282,6 @@
 
         caixaAtual = caixa;
 
-        // Buscar produto
         const { data: produto, error: errProd } = await sb
           .from('T_RM_PRODUTOS')
           .select('RM_NOME_PRODUTO, RM_CODIGO_PRODUTO')
@@ -121,7 +293,6 @@
           return;
         }
 
-        // Buscar estoque atual
         const { data: estAtual, error: errEst } = await sb
           .from('T_RM_ESTOQUES')
           .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
@@ -135,7 +306,6 @@
 
         estoqueAtual = estAtual;
 
-        // Buscar todos os estoques para o destino
         const { data: estoques, error: errListEst } = await sb
           .from('T_RM_ESTOQUES')
           .select('RM_ID_ESTOQUE, RM_NOME_ESTOQUE')
@@ -146,14 +316,12 @@
           return;
         }
 
-        // Preencher informações na tela
         document.getElementById('cx-codigo').textContent        = caixa.RM_CODIGO_CAIXA;
         document.getElementById('cx-produto').textContent       = produto.RM_NOME_PRODUTO;
         document.getElementById('cx-cod-produto').textContent   = produto.RM_CODIGO_PRODUTO;
         document.getElementById('cx-lote').textContent          = caixa.RM_LOTE;
         document.getElementById('cx-estoque-atual').textContent = estAtual.RM_NOME_ESTOQUE;
 
-        // Preencher o select de destino
         const selectDestino = document.getElementById('destino');
         estoques.forEach(est => {
           if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) return;
@@ -172,6 +340,7 @@
       }
     }
 
+    // ---------- MODO QR: registrar movimentação única ----------
     async function registrarMovimentacao() {
       const selectDestino = document.getElementById('destino');
       const btn           = document.getElementById('btn-confirmar');
@@ -238,11 +407,10 @@
       }
     }
 
-    // 2. Geração de QR Code
+    // ---------- Geração de QR Code ----------
     const inputQr = document.getElementById('qr-codigo');
     const btnQr   = document.getElementById('btn-gerar-qr');
     const qrDiv   = document.getElementById('qrcode');
-
     const BASE_URL_MOVIMENTAR = window.location.href.split('?')[0];
 
     function gerarQr() {
@@ -272,18 +440,55 @@
       });
     }
 
+    // ---------- Inicialização ----------
     document.addEventListener('DOMContentLoaded', () => {
+      // dados do QR (se vier com ?codigo_caixa=)
       carregarDadosCaixa();
+      // estoques para o modo em lote
+      carregarEstoquesLote();
 
+      // listeners QR
       const selectDestino = document.getElementById('destino');
       const btnConfirmar  = document.getElementById('btn-confirmar');
+      if (selectDestino && btnConfirmar) {
+        selectDestino.addEventListener('change', () => {
+          btnConfirmar.disabled = !selectDestino.value;
+        });
+        btnConfirmar.addEventListener('click', registrarMovimentacao);
+      }
 
-      selectDestino.addEventListener('change', () => {
-        btnConfirmar.disabled = !selectDestino.value;
-      });
+      // listener QR code
+      if (btnQr) {
+        btnQr.addEventListener('click', gerarQr);
+      }
 
-      btnConfirmar.addEventListener('click', registrarMovimentacao);
-      btnQr.addEventListener('click', gerarQr);
+      // listener do botão de lote
+      const btnLote = document.getElementById('btn-mover-lote');
+      if (btnLote) {
+        btnLote.addEventListener('click', registrarMovimentacaoLote);
+      }
+
+      // toggle de modos
+      const btnModoLista = document.getElementById('btn-modo-lista');
+      const btnModoQr    = document.getElementById('btn-modo-qr');
+      const movLista     = document.getElementById('mov-por-lista');
+      const movQr        = document.getElementById('mov-por-qr');
+
+      if (btnModoLista && btnModoQr && movLista && movQr) {
+        btnModoLista.addEventListener('click', () => {
+          btnModoLista.classList.add('ativo');
+          btnModoQr.classList.remove('ativo');
+          movLista.style.display = 'block';
+          movQr.style.display = 'none';
+        });
+
+        btnModoQr.addEventListener('click', () => {
+          btnModoQr.classList.add('ativo');
+          btnModoLista.classList.remove('ativo');
+          movLista.style.display = 'none';
+          movQr.style.display = 'block';
+        });
+      }
     });
   </script>
 </body>
