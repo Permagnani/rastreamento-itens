@@ -23,32 +23,36 @@
   <div class="card">
     <h1>Movimentar Caixas</h1>
     <p class="info">
-      Escolha se deseja movimentar várias caixas informando os códigos
+      Escolha se deseja movimentar várias caixas pela seleção
       ou movimentar a caixa atual aberta via QR Code.
     </p>
 
     <!-- Toggle de modo -->
     <div class="mov-toggle">
       <button type="button" id="btn-modo-lista" class="mov-toggle-btn ativo">
-        Por códigos (várias caixas)
+        Por seleção (várias caixas)
       </button>
       <button type="button" id="btn-modo-qr" class="mov-toggle-btn">
         Caixa atual (QR)
       </button>
     </div>
 
-    <!-- MODO 1: por lista de códigos -->
+    <!-- MODO 1: por seleção de caixas -->
     <div id="mov-por-lista">
-      <label for="codigos-lote">Códigos das caixas</label>
       <p class="info">
-        Digite ou escaneie os QR Codes. Cada código fica em uma linha
-        (ex: 00001, 00002, 00003).
+        1) Selecione o <strong>estoque de origem</strong>.<br />
+        2) Marque as caixas que deseja movimentar.<br />
+        3) Escolha o <strong>destino</strong> e confirme.
       </p>
-      <textarea
-        id="codigos-lote"
-        rows="4"
-        placeholder="00001&#10;00002&#10;00003"
-      ></textarea>
+
+      <label for="estoque-origem-lote">Estoque de origem</label>
+      <select id="estoque-origem-lote">
+        <option value="">Selecione o estoque...</option>
+      </select>
+
+      <div id="lista-caixas-origem" class="lista-caixas-lote">
+        <p class="info">Selecione um estoque de origem para listar as caixas.</p>
+      </div>
 
       <label for="destino-lote">Novo destino</label>
       <select id="destino-lote">
@@ -111,7 +115,9 @@
   <script>
     // 1. Configuração do Supabase
     const SUPABASE_URL = 'https://awgvthbcuyhboylhoqjq.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
+    const SUPABASE_ANON_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3Z3Z0aGJjdXloYm95bGhvcWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNDYyMzgsImV4cCI6MjA3OTcyMjIzOH0.3ihIlh-RPPC4S87szBqYwIsJFD7agBy8Bsh9EO9McmA';
+
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -121,8 +127,10 @@
 
     // ---------- MODO LOTE: carregar estoques ----------
     async function carregarEstoquesLote() {
-      const selectLote = document.getElementById('destino-lote');
-      if (!selectLote) return;
+      const selectOrigem = document.getElementById('estoque-origem-lote');
+      const selectDestinoLote = document.getElementById('destino-lote');
+
+      if (!selectOrigem && !selectDestinoLote) return;
 
       const { data: estoques, error } = await sb
         .from('T_RM_ESTOQUES')
@@ -139,41 +147,145 @@
         return;
       }
 
+      function limparSelectMantendoPrimeiraOpcao(sel) {
+        if (!sel) return;
+        while (sel.options.length > 1) {
+          sel.remove(1);
+        }
+      }
+
+      limparSelectMantendoPrimeiraOpcao(selectOrigem);
+      limparSelectMantendoPrimeiraOpcao(selectDestinoLote);
+
       estoques.forEach(est => {
-        const opt = document.createElement('option');
-        opt.value = est.RM_ID_ESTOQUE;
-        opt.textContent = est.RM_NOME_ESTOQUE;
-        selectLote.appendChild(opt);
+        if (selectOrigem) {
+          const optO = document.createElement('option');
+          optO.value = est.RM_ID_ESTOQUE;
+          optO.textContent = est.RM_NOME_ESTOQUE;
+          selectOrigem.appendChild(optO);
+        }
+        if (selectDestinoLote) {
+          const optD = document.createElement('option');
+          optD.value = est.RM_ID_ESTOQUE;
+          optD.textContent = est.RM_NOME_ESTOQUE;
+          selectDestinoLote.appendChild(optD);
+        }
       });
     }
 
+    // ---------- MODO LOTE: carregar caixas do estoque de origem ----------
+async function carregarCaixasOrigem(idEstoqueOrigem) {
+  const container = document.getElementById('lista-caixas-origem');
+  const msgLote   = document.getElementById('msg-lote');
+
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!idEstoqueOrigem) {
+    container.innerHTML =
+      '<p class="info">Selecione um estoque de origem para listar as caixas.</p>';
+    return;
+  }
+
+  // 1) Buscar caixas desse estoque (já trazendo o ID do produto)
+  const { data: caixas, error } = await sb
+    .from('T_RM_CAIXAS')
+    .select('RM_ID_CAIXA, RM_CODIGO_CAIXA, RM_ID_PRODUTO')
+    .eq('RM_ID_ESTOQUE_ATUAL', Number(idEstoqueOrigem))
+    .order('RM_CODIGO_CAIXA', { ascending: true });
+
+  if (error) {
+    console.error(error);
+    if (msgLote) {
+      msgLote.textContent = 'Erro ao carregar caixas do estoque de origem.';
+      msgLote.className = 'msg erro';
+    }
+    return;
+  }
+
+  if (!caixas || caixas.length === 0) {
+    container.innerHTML =
+      '<p class="info">Não há caixas neste estoque de origem.</p>';
+    return;
+  }
+
+  // 2) Montar lista de IDs de produto (sem repetir)
+  const idsProdutos = [...new Set(
+    caixas.map(cx => cx.RM_ID_PRODUTO).filter(Boolean)
+  )];
+
+  // 3) Buscar nomes dos produtos e montar mapa id -> nome
+  let mapaProdutos = {};
+  if (idsProdutos.length) {
+    const { data: produtos, error: errProd } = await sb
+      .from('T_RM_PRODUTOS')
+      .select('RM_ID_PRODUTO, RM_NOME_PRODUTO')
+      .in('RM_ID_PRODUTO', idsProdutos);
+
+    if (!errProd && produtos) {
+      produtos.forEach(p => {
+        mapaProdutos[p.RM_ID_PRODUTO] = p.RM_NOME_PRODUTO;
+      });
+    }
+  }
+
+  // 4) Renderizar: "00001 - Caldo de Cana 5L"
+  caixas.forEach(cx => {
+    const linha = document.createElement('div');
+    linha.className = 'caixa-lote-linha';
+
+    const nomeProd = mapaProdutos[cx.RM_ID_PRODUTO] || '';
+
+    linha.innerHTML = `
+      <label>
+        <input
+          type="checkbox"
+          class="chk-caixa-lote"
+          data-id-caixa="${cx.RM_ID_CAIXA}"
+          data-codigo-caixa="${cx.RM_CODIGO_CAIXA}"
+        />
+        <span class="caixa-lote-codigo">
+          ${cx.RM_CODIGO_CAIXA}${nomeProd ? ' - ' + nomeProd : ''}
+        </span>
+      </label>
+    `;
+
+    container.appendChild(linha);
+  });
+}
+
+
     // ---------- MODO LOTE: registrar movimentação ----------
     async function registrarMovimentacaoLote() {
-      const textarea = document.getElementById('codigos-lote');
-      const selectDestino = document.getElementById('destino-lote');
       const msgLote = document.getElementById('msg-lote');
       const btnLote = document.getElementById('btn-mover-lote');
+      const selectOrigem = document.getElementById('estoque-origem-lote');
+      const selectDestino = document.getElementById('destino-lote');
+
+      if (!msgLote || !btnLote || !selectOrigem || !selectDestino) return;
 
       msgLote.className = 'msg';
       msgLote.textContent = '';
 
-      if (!textarea || !selectDestino) return;
+      const idEstoqueOrigem = selectOrigem.value;
+      const idEstoqueDestino = selectDestino.value;
 
-      // Aceita uma por linha, vírgula ou ponto e vírgula
-      let codigos = textarea.value
-        .split(/\r?\n|,|;/)
-        .map(c => c.trim())
-        .filter(c => c !== '');
-
-      if (codigos.length === 0) {
-        msgLote.textContent = 'Informe pelo menos um código de caixa.';
+      if (!idEstoqueOrigem) {
+        msgLote.textContent = 'Selecione o estoque de origem.';
         msgLote.classList.add('erro');
         return;
       }
 
-      const idEstoqueDestino = selectDestino.value;
       if (!idEstoqueDestino) {
         msgLote.textContent = 'Selecione o estoque de destino.';
+        msgLote.classList.add('erro');
+        return;
+      }
+
+      const checkboxes = document.querySelectorAll('.chk-caixa-lote:checked');
+      if (!checkboxes.length) {
+        msgLote.textContent = 'Selecione pelo menos uma caixa para movimentar.';
         msgLote.classList.add('erro');
         return;
       }
@@ -182,29 +294,18 @@
       msgLote.textContent = 'Registrando movimentações...';
 
       const ok = [];
-      const naoEncontradas = [];
       const erros = [];
 
-      for (const codigo of codigos) {
+      for (const cb of checkboxes) {
+        const idCaixa = Number(cb.dataset.idCaixa);
+        const codigoCaixa = cb.dataset.codigoCaixa;
+
         try {
-          // 1) Buscar a caixa pelo código
-          const { data: caixa, error: errCaixa } = await sb
-            .from('T_RM_CAIXAS')
-            .select('RM_ID_CAIXA, RM_ID_ESTOQUE_ATUAL')
-            .eq('RM_CODIGO_CAIXA', codigo)
-            .single();
-
-          if (errCaixa || !caixa) {
-            naoEncontradas.push(codigo);
-            continue;
-          }
-
-          // 2) Registrar movimentação
           const { error: errMov } = await sb
             .from('T_RM_MOVIMENTACOES')
             .insert({
-              RM_ID_CAIXA: caixa.RM_ID_CAIXA,
-              RM_ID_ESTOQUE_ORIGEM: caixa.RM_ID_ESTOQUE_ATUAL,
+              RM_ID_CAIXA: idCaixa,
+              RM_ID_ESTOQUE_ORIGEM: Number(idEstoqueOrigem),
               RM_ID_ESTOQUE_DESTINO: Number(idEstoqueDestino),
               RM_TIPO_MOVIMENTACAO: 'TRANSFERENCIA',
               RM_USUARIO_RESPONSAVEL: 'APP_WEB_LOTE'
@@ -212,26 +313,25 @@
 
           if (errMov) {
             console.error(errMov);
-            erros.push(codigo);
+            erros.push(codigoCaixa);
             continue;
           }
 
-          // 3) Atualizar estoque atual da caixa
           const { error: errUpdate } = await sb
             .from('T_RM_CAIXAS')
             .update({ RM_ID_ESTOQUE_ATUAL: Number(idEstoqueDestino) })
-            .eq('RM_ID_CAIXA', caixa.RM_ID_CAIXA);
+            .eq('RM_ID_CAIXA', idCaixa);
 
           if (errUpdate) {
             console.error(errUpdate);
-            erros.push(codigo);
+            erros.push(codigoCaixa);
             continue;
           }
 
-          ok.push(codigo);
+          ok.push(codigoCaixa);
         } catch (e) {
           console.error(e);
-          erros.push(codigo);
+          erros.push(codigoCaixa);
         }
       }
 
@@ -239,16 +339,16 @@
       if (ok.length) {
         msg += `Movimentação realizada para as caixas: ${ok.join(', ')}.\n`;
       }
-      if (naoEncontradas.length) {
-        msg += `Não encontradas: ${naoEncontradas.join(', ')}.\n`;
-      }
       if (erros.length) {
-        msg += `Ocorreram erros em: ${erros.join(', ')}.`;
+        msg += `Ocorreram erros nas caixas: ${erros.join(', ')}.`;
       }
 
       msgLote.textContent = msg.trim();
       msgLote.classList.add(ok.length && !erros.length ? 'sucesso' : 'erro');
       btnLote.disabled = false;
+
+      // Atualiza a lista de caixas do estoque de origem
+      carregarCaixasOrigem(idEstoqueOrigem);
     }
 
     // ---------- MODO QR: carregar dados da caixa ----------
@@ -323,17 +423,24 @@
         document.getElementById('cx-estoque-atual').textContent = estAtual.RM_NOME_ESTOQUE;
 
         const selectDestino = document.getElementById('destino');
-        estoques.forEach(est => {
-          if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) return;
-          const opt = document.createElement('option');
-          opt.value = est.RM_ID_ESTOQUE;
-          opt.textContent = est.RM_NOME_ESTOQUE;
-          selectDestino.appendChild(opt);
-        });
+        if (selectDestino) {
+          // limpa antes
+          while (selectDestino.options.length > 1) {
+            selectDestino.remove(1);
+          }
+
+          estoques.forEach(est => {
+            if (est.RM_ID_ESTOQUE === estAtual.RM_ID_ESTOQUE) return;
+            const opt = document.createElement('option');
+            opt.value = est.RM_ID_ESTOQUE;
+            opt.textContent = est.RM_NOME_ESTOQUE;
+            selectDestino.appendChild(opt);
+          });
+        }
 
         loadingEl.style.display = 'none';
         dadosEl.style.display   = 'block';
-        msgEl.textContent       = '';
+        if (msgEl) msgEl.textContent = '';
       } catch (e) {
         console.error(e);
         loadingEl.textContent = 'Erro ao carregar dados da caixa.';
@@ -447,7 +554,7 @@
       // estoques para o modo em lote
       carregarEstoquesLote();
 
-      // listeners QR
+      // listeners QR (movimentação única)
       const selectDestino = document.getElementById('destino');
       const btnConfirmar  = document.getElementById('btn-confirmar');
       if (selectDestino && btnConfirmar) {
@@ -457,7 +564,7 @@
         btnConfirmar.addEventListener('click', registrarMovimentacao);
       }
 
-      // listener QR code
+      // listener QR code generator
       if (btnQr) {
         btnQr.addEventListener('click', gerarQr);
       }
@@ -466,6 +573,14 @@
       const btnLote = document.getElementById('btn-mover-lote');
       if (btnLote) {
         btnLote.addEventListener('click', registrarMovimentacaoLote);
+      }
+
+      // quando mudar o estoque de origem, carrega caixas
+      const selectOrigemLote = document.getElementById('estoque-origem-lote');
+      if (selectOrigemLote) {
+        selectOrigemLote.addEventListener('change', (e) => {
+          carregarCaixasOrigem(e.target.value);
+        });
       }
 
       // toggle de modos
