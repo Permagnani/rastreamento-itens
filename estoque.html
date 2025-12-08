@@ -32,7 +32,7 @@
       </button>
     </div>
 
-    <!-- FILTROS (valem para os dois modos) -->
+    <!-- FILTROS + ORDENAÇÃO (valem para os dois modos) -->
     <div class="estoque-filtros">
       <div>
         <label for="filtro-texto">Buscar</label>
@@ -60,6 +60,37 @@
           <option value="PERDIDA">PERDIDA</option>
         </select>
       </div>
+
+      <!-- Ordenação multi-nível no mesmo layout -->
+      <div>
+        <label for="ord1">1º ordenar por</label>
+        <select id="ord1">
+          <option value="estoque">Tipo de estoque</option>
+          <option value="codigo">Código</option>
+          <option value="nome">Nome do item</option>
+          <option value="">(nenhum)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="ord2">Depois por</label>
+        <select id="ord2">
+          <option value="">(nenhum)</option>
+          <option value="estoque">Tipo de estoque</option>
+          <option value="codigo">Código</option>
+          <option value="nome">Nome do item</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="ord3">Por último</label>
+        <select id="ord3">
+          <option value="">(nenhum)</option>
+          <option value="estoque">Tipo de estoque</option>
+          <option value="codigo">Código</option>
+          <option value="nome">Nome do item</option>
+        </select>
+      </div>
     </div>
 
     <!-- MODO TABELA -->
@@ -80,11 +111,30 @@
       </table>
     </div>
 
-    <!-- MODO MOSAICO -->
+    <!-- MODO MOSAICO (2 PAINÉIS) -->
     <div id="container-mosaico" style="display:none;">
-      <div id="caixas-grid" class="caixas-grid">
-        <!-- Cards gerados via JavaScript -->
-      </div>
+
+      <!-- PAINEL 1: VISÃO GERAL (TODAS AS CAIXAS) -->
+      <section class="painel-estoque">
+        <div class="painel-estoque-header">
+          <h2>Visão geral – todas as caixas</h2>
+        </div>
+
+        <div id="mosaico-fabrica" class="mosaico-grade">
+          <!-- Cards preenchidos via JS -->
+        </div>
+      </section>
+
+      <!-- PAINEL 2: LOJA LIBERDADE -->
+      <section class="painel-estoque">
+        <div class="painel-estoque-header">
+          <h2>Loja – Liberdade (estoque atual)</h2>
+        </div>
+
+        <div id="mosaico-liberdade" class="mosaico-grade">
+          <!-- Cards da Liberdade preenchidos via JS -->
+        </div>
+      </section>
     </div>
   </div>
 
@@ -235,62 +285,127 @@
 
       const n = nomeEstoque.toLowerCase();
 
-      if (n.includes('câmara') || n.includes('camara')) {
-        return '#dbeafe'; // câmara fria – azul claro
+      // Liberdade = vermelho clarinho
+      if (n.includes('liberdade')) {
+        return '#fecaca';
       }
+
+      // Câmara fria = azul claro
+      if (n.includes('câmara') || n.includes('camara')) {
+        return '#dbeafe';
+      }
+
       if (n.includes('freezer')) {
-        return '#fee2e2'; // freezer – rosado
+        return '#fee2e2';
       }
       if (n.includes('seco')) {
-        return '#dcfce7'; // estoque seco – verde claro
+        return '#dcfce7';
       }
       if (n.includes('produção') || n.includes('producao')) {
-        return '#fef3c7'; // produção – amarelo claro
+        return '#fef3c7';
       }
-
-       if (n.includes('liberdade')) {
-        return '#fecaca'; // azul bem clarinho só pra Liberdade
-      }
-      return '#e5e7eb'; // padrão
+      return '#e5e7eb';
     }
 
-    // --------- MOSAICO: gerar cards ----------
-    function gerarMosaicoCaixas(caixas) {
-      const grid = document.getElementById('caixas-grid');
-      if (!grid) return;
+    // --------- MOSAICO: criar um card ----------
+    function criarCardCaixa(cx) {
+      const nomeProd = mapaProdutos[cx.RM_ID_PRODUTO] || '-';
+      const nomeEst  = mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '-';
+      const bgColor  = getBgColorPorEstoque(nomeEst);
 
-      grid.innerHTML = '';
+      const card = document.createElement('div');
+      card.className = 'caixa-card';
+      card.style.backgroundColor = bgColor;
 
-      caixas.forEach((cx) => {
-        const nomeProduto = mapaProdutos[cx.RM_ID_PRODUTO] || '-';
-        const nomeEstoque = mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '-';
+      card.innerHTML = `
+        <div class="caixa-card-top">
+          <div class="caixa-codigo">${cx.RM_CODIGO_CAIXA}</div>
+          <span class="badge-status status-${cx.RM_STATUS_CAIXA}">
+            ${cx.RM_STATUS_CAIXA}
+          </span>
+        </div>
+        <div class="caixa-produto">${nomeProd}</div>
+        <div class="caixa-estoque-linha">
+          <span class="badge-estoque">${nomeEst}</span>
+        </div>
+      `;
+      return card;
+    }
 
-        const card = document.createElement('div');
-        card.className = 'caixa-card';
-        card.style.backgroundColor = getBgColorPorEstoque(nomeEstoque);
+    // --------- Ordenação multi-nível (estoque / código / nome) ----------
+    function ordenarCaixasMultinivel(lista) {
+      const ord1El = document.getElementById('ord1');
+      const ord2El = document.getElementById('ord2');
+      const ord3El = document.getElementById('ord3');
 
-        card.innerHTML = `
-          <div class="caixa-card-top">
-            <div class="caixa-codigo">${cx.RM_CODIGO_CAIXA}</div>
-            <span class="badge-status status-${cx.RM_STATUS_CAIXA}">
-              ${cx.RM_STATUS_CAIXA}
-            </span>
-          </div>
-          <div class="caixa-produto">${nomeProduto}</div>
-          <div class="caixa-estoque-linha">
-            <span class="badge-estoque">${nomeEstoque}</span>
-          </div>
-        `;
+      const ord1 = ord1El ? ord1El.value : '';
+      const ord2 = ord2El ? ord2El.value : '';
+      const ord3 = ord3El ? ord3El.value : '';
 
-        grid.appendChild(card);
+      const chaves = [ord1, ord2, ord3].filter(Boolean);
+
+      if (chaves.length === 0) {
+        return [...lista];
+      }
+
+      const getCampo = (cx, chave) => {
+        switch (chave) {
+          case 'codigo':
+            return cx.RM_CODIGO_CAIXA || '';
+          case 'nome':
+            return mapaProdutos[cx.RM_ID_PRODUTO] || '';
+          case 'estoque':
+            return mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '';
+          default:
+            return '';
+        }
+      };
+
+      return [...lista].sort((a, b) => {
+        for (const chave of chaves) {
+          const va = (getCampo(a, chave) || '').toString().toLowerCase();
+          const vb = (getCampo(b, chave) || '').toString().toLowerCase();
+
+          if (va < vb) return -1;
+          if (va > vb) return 1;
+        }
+        return 0;
       });
     }
 
-    // --------- Aplicar filtros (para tabela + mosaico) ----------
+    // --------- MOSAICO: preencher "Visão geral" + "Liberdade" ----------
+    function preencherMosaico(caixasCameraGeral, caixasLiberdade) {
+      const fabContainer = document.getElementById('mosaico-fabrica');
+      const libContainer = document.getElementById('mosaico-liberdade');
+      if (!fabContainer || !libContainer) return;
+
+      fabContainer.innerHTML = '';
+      libContainer.innerHTML = '';
+
+      if (!caixasCameraGeral.length) {
+        fabContainer.innerHTML =
+          '<p class="info">Nenhuma caixa encontrada com os filtros atuais.</p>';
+      } else {
+        caixasCameraGeral.forEach((cx) => {
+          fabContainer.appendChild(criarCardCaixa(cx));
+        });
+      }
+
+      if (!caixasLiberdade.length) {
+        libContainer.innerHTML =
+          '<p class="info">Nenhuma caixa na Liberdade com os filtros atuais.</p>';
+      } else {
+        caixasLiberdade.forEach((cx) => {
+          libContainer.appendChild(criarCardCaixa(cx));
+        });
+      }
+    }
+
+    // --------- Aplicar filtros (tabela + mosaico) ----------
     function aplicarFiltros() {
       if (!caixasOriginais || caixasOriginais.length === 0) {
         preencherTabelaCaixas([]);
-        gerarMosaicoCaixas([]);
+        preencherMosaico([], []);
         return;
       }
 
@@ -298,21 +413,19 @@
         .getElementById('filtro-texto')
         .value.toLowerCase()
         .trim();
-      const idEstoque = document.getElementById('filtro-estoque').value;
-      const status = document.getElementById('filtro-status').value;
 
-      let filtradas = caixasOriginais.filter((cx) => {
-        // filtro estoque
-        if (idEstoque && cx.RM_ID_ESTOQUE_ATUAL !== Number(idEstoque)) {
+      const idEstoqueFiltro = document.getElementById('filtro-estoque').value;
+      const statusFiltro    = document.getElementById('filtro-status').value;
+
+      const passaFiltros = (cx, ignorarEstoque = false) => {
+        if (!ignorarEstoque && idEstoqueFiltro && cx.RM_ID_ESTOQUE_ATUAL !== Number(idEstoqueFiltro)) {
           return false;
         }
 
-        // filtro status
-        if (status && cx.RM_STATUS_CAIXA !== status) {
+        if (statusFiltro && cx.RM_STATUS_CAIXA !== statusFiltro) {
           return false;
         }
 
-        // filtro texto (código ou produto)
         if (texto) {
           const cod = (cx.RM_CODIGO_CAIXA || '').toLowerCase();
           const nomeProd = (mapaProdutos[cx.RM_ID_PRODUTO] || '').toLowerCase();
@@ -322,16 +435,38 @@
         }
 
         return true;
-      });
+      };
 
-      // atualiza os dois modos
-      preencherTabelaCaixas(filtradas);
-      gerarMosaicoCaixas(filtradas);
+      // TABELA
+      const paraTabelaBruto = caixasOriginais.filter((cx) => passaFiltros(cx, false));
+      const paraTabela = ordenarCaixasMultinivel(paraTabelaBruto);
+      preencherTabelaCaixas(paraTabela);
+
+      // MOSAICO – VISÃO GERAL
+      const paraCameraBruto = caixasOriginais.filter((cx) => {
+        if (!passaFiltros(cx, true)) return false;
+        const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
+        return (
+          nomeEst.includes('câmara') ||
+          nomeEst.includes('camara') ||
+          nomeEst.includes('liberdade')
+        );
+      });
+      const paraCameraGeral = ordenarCaixasMultinivel(paraCameraBruto);
+
+      // MOSAICO – LIBERDADE
+      const paraLiberdadeBruto = caixasOriginais.filter((cx) => {
+        if (!passaFiltros(cx, true)) return false;
+        const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
+        return nomeEst.includes('liberdade');
+      });
+      const paraLiberdade = ordenarCaixasMultinivel(paraLiberdadeBruto);
+
+      preencherMosaico(paraCameraGeral, paraLiberdade);
     }
 
     // --------- Histórico (abre/fecha embaixo da linha) ----------
     async function abrirHistorico(idCaixa, codigoCaixa, linhaTabela) {
-      // Se já existe um histórico logo abaixo dessa linha, remove (toggle)
       const proxima = linhaTabela.nextSibling;
       if (
         proxima &&
@@ -342,7 +477,6 @@
         return;
       }
 
-      // Remove qualquer histórico aberto em outra linha
       const antiga = document.querySelector('.linha-historico');
       if (antiga) antiga.remove();
 
@@ -413,24 +547,22 @@
     document.addEventListener('DOMContentLoaded', () => {
       carregarCaixas();
 
-      const filtroTexto = document.getElementById('filtro-texto');
+      const filtroTexto   = document.getElementById('filtro-texto');
       const filtroEstoque = document.getElementById('filtro-estoque');
-      const filtroStatus = document.getElementById('filtro-status');
+      const filtroStatus  = document.getElementById('filtro-status');
 
-      if (filtroTexto) {
-        filtroTexto.addEventListener('input', aplicarFiltros);
-      }
-      if (filtroEstoque) {
-        filtroEstoque.addEventListener('change', aplicarFiltros);
-      }
-      if (filtroStatus) {
-        filtroStatus.addEventListener('change', aplicarFiltros);
-      }
+      if (filtroTexto)   filtroTexto.addEventListener('input', aplicarFiltros);
+      if (filtroEstoque) filtroEstoque.addEventListener('change', aplicarFiltros);
+      if (filtroStatus)  filtroStatus.addEventListener('change', aplicarFiltros);
 
-      // Toggle Tabela / Mosaico
-      const btnTabela = document.getElementById('btn-view-tabela');
-      const btnMosaico = document.getElementById('btn-view-mosaico');
-      const contTabela = document.getElementById('container-tabela');
+      ['ord1', 'ord2', 'ord3'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', aplicarFiltros);
+      });
+
+      const btnTabela   = document.getElementById('btn-view-tabela');
+      const btnMosaico  = document.getElementById('btn-view-mosaico');
+      const contTabela  = document.getElementById('container-tabela');
       const contMosaico = document.getElementById('container-mosaico');
 
       if (btnTabela && btnMosaico && contTabela && contMosaico) {

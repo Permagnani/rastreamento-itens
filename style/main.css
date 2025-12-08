@@ -540,3 +540,38 @@ td.acoes-centro {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 }
+
+/* Área onde ficam os cards do mosaico */
+.mosaico-grade {
+  display: flex;
+  flex-wrap: wrap;   /* permite quebrar para a linha de baixo */
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* tamanho dos quadradinhos na visão geral (mosaico por estoque) */
+.mosaico-grade .caixa-card {
+  flex: 0 0 calc(25% - 16px);  /* ~4 cards por linha em tela grande */
+  max-width: 260px;
+  min-width: 200px;
+  box-sizing: border-box;
+}
+
+/* responsivo só para a visão geral */
+@media (max-width: 1024px) {
+  .mosaico-grade .caixa-card {
+    flex-basis: calc(33.33% - 16px); /* 3 por linha */
+  }
+}
+
+@media (max-width: 768px) {
+  .mosaico-grade .caixa-card {
+    flex-basis: calc(50% - 16px);    /* 2 por linha */
+  }
+}
+
+@media (max-width: 480px) {
+  .mosaico-grade .caixa-card {
+    flex-basis: 100%;                /* 1 por linha (celular) */
+  }
+}
