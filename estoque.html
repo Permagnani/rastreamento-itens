@@ -33,33 +33,11 @@
     </div>
 
     <!-- FILTROS + ORDENAÇÃO (valem para os dois modos) -->
-    <div class="estoque-filtros">
-      <div>
-        <label for="filtro-texto">Buscar</label>
-        <input
-          id="filtro-texto"
-          type="text"
-          placeholder="Código ou nome do produto..."
-        />
-      </div>
+    
 
-      <div>
-        <label for="filtro-estoque">Estoque</label>
-        <select id="filtro-estoque">
-          <option value="">Todos</option>
-        </select>
-      </div>
+      
 
-      <div>
-        <label for="filtro-status">Status</label>
-        <select id="filtro-status">
-          <option value="">Todos</option>
-          <option value="ATIVA">ATIVA</option>
-          <option value="INATIVA">INATIVA</option>
-          <option value="DANIFICADA">DANIFICADA</option>
-          <option value="PERDIDA">PERDIDA</option>
-        </select>
-      </div>
+      
 
       <!-- Ordenação multi-nível no mesmo layout -->
       <div>
@@ -72,26 +50,7 @@
         </select>
       </div>
 
-      <div>
-        <label for="ord2">Depois por</label>
-        <select id="ord2">
-          <option value="">(nenhum)</option>
-          <option value="estoque">Tipo de estoque</option>
-          <option value="codigo">Código</option>
-          <option value="nome">Nome do item</option>
-        </select>
-      </div>
-
-      <div>
-        <label for="ord3">Por último</label>
-        <select id="ord3">
-          <option value="">(nenhum)</option>
-          <option value="estoque">Tipo de estoque</option>
-          <option value="codigo">Código</option>
-          <option value="nome">Nome do item</option>
-        </select>
-      </div>
-    </div>
+      
 
     <!-- MODO TABELA -->
     <div id="container-tabela">
@@ -280,32 +239,45 @@
     }
 
     // --------- MOSAICO: cor de fundo por estoque ----------
-    function getBgColorPorEstoque(nomeEstoque) {
-      if (!nomeEstoque) return '#e5e7eb';
+function getBgColorPorEstoque(nomeEstoque) {
+  if (!nomeEstoque) return '#e5e7eb';
 
-      const n = nomeEstoque.toLowerCase();
+  const n = nomeEstoque.toLowerCase();
 
-      // Liberdade = vermelho clarinho
-      if (n.includes('liberdade')) {
-        return '#fecaca';
-      }
+  // 🔴 Liberdade = vermelho claro
+  if (n.includes('liberdade')) {
+    return '#fecaca';
+  }
 
-      // Câmara fria = azul claro
-      if (n.includes('câmara') || n.includes('camara')) {
-        return '#dbeafe';
-      }
+  // 🔵 Câmara fria = azul claro
+  if (n.includes('câmara') || n.includes('camara')) {
+    return '#dbeafe';
+  }
 
-      if (n.includes('freezer')) {
-        return '#fee2e2';
-      }
-      if (n.includes('seco')) {
-        return '#dcfce7';
-      }
-      if (n.includes('produção') || n.includes('producao')) {
-        return '#fef3c7';
-      }
-      return '#e5e7eb';
-    }
+  // 🟢 Pinheiros = verde claro
+  if (n.includes('pinheiros')) {
+    return '#dcfce7';
+  }
+
+  // ⚪ Disponível = branco
+  if (n.includes('dispon')) {
+    return '#ffffff';
+  }
+
+  // (mantive seus outros casos se ainda usar)
+  if (n.includes('freezer')) {
+    return '#fee2e2';
+  }
+  if (n.includes('seco')) {
+    return '#dcfce7';
+  }
+  if (n.includes('produção') || n.includes('producao')) {
+    return '#fef3c7';
+  }
+
+  return '#e5e7eb';
+}
+
 
     // --------- MOSAICO: criar um card ----------
     function criarCardCaixa(cx) {
@@ -401,69 +373,43 @@
       }
     }
 
-    // --------- Aplicar filtros (tabela + mosaico) ----------
     function aplicarFiltros() {
-      if (!caixasOriginais || caixasOriginais.length === 0) {
-        preencherTabelaCaixas([]);
-        preencherMosaico([], []);
-        return;
-      }
+  if (!caixasOriginais || caixasOriginais.length === 0) {
+    preencherTabelaCaixas([]);
+    preencherMosaico([], []);
+    return;
+  }
 
-      const texto = document
-        .getElementById('filtro-texto')
-        .value.toLowerCase()
-        .trim();
+  const listaOrdenada = ordenarCaixasMultinivel(caixasOriginais);
 
-      const idEstoqueFiltro = document.getElementById('filtro-estoque').value;
-      const statusFiltro    = document.getElementById('filtro-status').value;
+  // TABELA
+  preencherTabelaCaixas(listaOrdenada);
 
-      const passaFiltros = (cx, ignorarEstoque = false) => {
-        if (!ignorarEstoque && idEstoqueFiltro && cx.RM_ID_ESTOQUE_ATUAL !== Number(idEstoqueFiltro)) {
-          return false;
-        }
+  // MOSAICO – VISÃO GERAL
+  const paraCameraGeral = ordenarCaixasMultinivel(
+    caixasOriginais.filter((cx) => {
+      const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
+      return (
+        nomeEst.includes('câmara') ||
+        nomeEst.includes('camara') ||
+        nomeEst.includes('liberdade') ||
+        nomeEst.includes('pinheiros') ||
+        nomeEst.includes('dispon')
+      );
+    })
+  );
 
-        if (statusFiltro && cx.RM_STATUS_CAIXA !== statusFiltro) {
-          return false;
-        }
+  // MOSAICO – LIBERDADE
+  const paraLiberdade = ordenarCaixasMultinivel(
+    caixasOriginais.filter((cx) => {
+      const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
+      return nomeEst.includes('liberdade');
+    })
+  );
 
-        if (texto) {
-          const cod = (cx.RM_CODIGO_CAIXA || '').toLowerCase();
-          const nomeProd = (mapaProdutos[cx.RM_ID_PRODUTO] || '').toLowerCase();
-          if (!cod.includes(texto) && !nomeProd.includes(texto)) {
-            return false;
-          }
-        }
+  preencherMosaico(paraCameraGeral, paraLiberdade);
+}
 
-        return true;
-      };
-
-      // TABELA
-      const paraTabelaBruto = caixasOriginais.filter((cx) => passaFiltros(cx, false));
-      const paraTabela = ordenarCaixasMultinivel(paraTabelaBruto);
-      preencherTabelaCaixas(paraTabela);
-
-      // MOSAICO – VISÃO GERAL
-      const paraCameraBruto = caixasOriginais.filter((cx) => {
-        if (!passaFiltros(cx, true)) return false;
-        const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
-        return (
-          nomeEst.includes('câmara') ||
-          nomeEst.includes('camara') ||
-          nomeEst.includes('liberdade')
-        );
-      });
-      const paraCameraGeral = ordenarCaixasMultinivel(paraCameraBruto);
-
-      // MOSAICO – LIBERDADE
-      const paraLiberdadeBruto = caixasOriginais.filter((cx) => {
-        if (!passaFiltros(cx, true)) return false;
-        const nomeEst = (mapaEstoques[cx.RM_ID_ESTOQUE_ATUAL] || '').toLowerCase();
-        return nomeEst.includes('liberdade');
-      });
-      const paraLiberdade = ordenarCaixasMultinivel(paraLiberdadeBruto);
-
-      preencherMosaico(paraCameraGeral, paraLiberdade);
-    }
 
     // --------- Histórico (abre/fecha embaixo da linha) ----------
     async function abrirHistorico(idCaixa, codigoCaixa, linhaTabela) {
