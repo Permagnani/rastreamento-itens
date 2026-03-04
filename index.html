@@ -61,7 +61,14 @@
 
       <button id="btn-mover-lote">Mover caixas selecionadas</button>
       <div id="msg-lote" class="msg"></div>
-    </div>
+
+      <h3>Ler QR para selecionar caixas</h3>
+      <button id="btn-abrir-camera" type="button">
+         Ler QR Code
+      </button>
+
+      <div id="reader" style="margin-top:12px; display:none;"></div>
+      </div>
 
     <!-- MODO 2: caixa atual (via QR) -->
     <div id="mov-por-qr" style="display:none;">
@@ -73,12 +80,7 @@
 
       <hr style="margin:16px 0;">
 
-    <h3>Ler QR pela câmera</h3>
-    <button id="btn-abrir-camera" type="button">
-     Ler QR Code
-    </button>
 
-    <div id="reader" style="margin-top:12px; display:none;"></div>
 
       <div id="dados" style="display:none;">
         <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
@@ -540,23 +542,35 @@ async function carregarCaixasOrigem(idEstoqueOrigem) {
         return;
       }
 
-      const url = `${BASE_URL_MOVIMENTAR}?codigo_caixa=${encodeURIComponent(codigo)}`;
-
-      const p = document.createElement('p');
-      p.className = 'info';
-      p.textContent = url;
-      qrDiv.appendChild(p);
-
       const qrContainer = document.createElement('div');
       qrDiv.appendChild(qrContainer);
 
       new QRCode(qrContainer, {
-        text: url,
+        text: codigo,
         width: 220,
         height: 220,
         correctLevel: QRCode.CorrectLevel.H
       });
     }
+
+    function marcarCaixaPorCodigo(codigoLido) {
+
+  const codigoNormalizado = codigoLido
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+  const checkbox = document.querySelector(
+    `.chk-caixa-lote[data-codigo-caixa='${codigoNormalizado}']`
+  );
+
+  if (!checkbox) {
+    alert("Essa caixa não pertence ao estoque de origem selecionado.");
+    return;
+  }
+
+  checkbox.checked = true;
+}
 
     // ---------- Inicialização ----------
     document.addEventListener('DOMContentLoaded', () => {
@@ -661,15 +675,7 @@ if (btnAbrirCamera && readerDiv) {
         },
         (decodedText) => {
 
-          const codigo = decodedText.trim();
-
-          html5QrCode.stop();
-          readerDiv.style.display = 'none';
-
-          const base = window.location.href.split('?')[0];
-          window.location.href =
-            `${base}?codigo_caixa=${encodeURIComponent(codigo)}`;
-
+        marcarCaixaPorCodigo(decodedText);        
         },
         () => {}
       );
