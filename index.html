@@ -66,9 +66,19 @@
     <!-- MODO 2: caixa atual (via QR) -->
     <div id="mov-por-qr" style="display:none;">
       <div id="loading" class="info">
+        
         Esta tela é usada pelo QR Code. Quando abrir pelo QR da caixa,
         os dados aparecerão aqui.
       </div>
+
+      <hr style="margin:16px 0;">
+
+    <h3>Ler QR pela câmera</h3>
+    <button id="btn-abrir-camera" type="button">
+     Ler QR Code
+    </button>
+
+    <div id="reader" style="margin-top:12px; display:none;"></div>
 
       <div id="dados" style="display:none;">
         <div class="info"><strong>Código da caixa:</strong> <span id="cx-codigo"></span></div>
@@ -111,6 +121,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Biblioteca de QR Code (qrcodejs) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
   <script>
     // 1. Configuração do Supabase
@@ -604,6 +615,72 @@ async function carregarCaixasOrigem(idEstoqueOrigem) {
           movQr.style.display = 'block';
         });
       }
+      // ---------- LEITOR QR POR CÂMERA (VERSÃO BLINDADA) ----------
+const btnAbrirCamera = document.getElementById('btn-abrir-camera');
+const readerDiv = document.getElementById('reader');
+
+let html5QrCode;
+
+if (btnAbrirCamera && readerDiv) {
+  btnAbrirCamera.addEventListener('click', async () => {
+
+    readerDiv.style.display = 'block';
+
+    if (html5QrCode) {
+      await html5QrCode.stop().catch(() => {});
+    }
+
+    html5QrCode = new Html5Qrcode("reader");
+
+    try {
+
+      const devices = await Html5Qrcode.getCameras();
+
+      if (!devices || devices.length === 0) {
+        alert("Nenhuma câmera encontrada.");
+        return;
+      }
+
+      // 🔎 procura traseira pelo nome
+      let cameraTraseira = devices.find(device =>
+        device.label.toLowerCase().includes("back") ||
+        device.label.toLowerCase().includes("rear") ||
+        device.label.toLowerCase().includes("environment")
+      );
+
+      // 🔄 fallback: usa última da lista
+      if (!cameraTraseira) {
+        cameraTraseira = devices[devices.length - 1];
+      }
+
+      await html5QrCode.start(
+        cameraTraseira.id,
+        {
+          fps: 10,
+          qrbox: 250
+        },
+        (decodedText) => {
+
+          const codigo = decodedText.trim();
+
+          html5QrCode.stop();
+          readerDiv.style.display = 'none';
+
+          const base = window.location.href.split('?')[0];
+          window.location.href =
+            `${base}?codigo_caixa=${encodeURIComponent(codigo)}`;
+
+        },
+        () => {}
+      );
+
+    } catch (err) {
+      alert("Erro ao acessar câmera.");
+      console.error(err);
+    }
+
+  });
+}
     });
   </script>
 </body>
