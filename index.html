@@ -53,6 +53,12 @@
       <div id="lista-caixas-origem" class="lista-caixas-lote">
         <p class="info">Selecione um estoque de origem para listar as caixas.</p>
       </div>
+      <div id="contador-caixas">
+        Caixas selecionadas: 0
+      </div>
+
+
+
 
       <label for="destino-lote">Novo destino</label>
       <select id="destino-lote">
@@ -570,7 +576,19 @@ async function carregarCaixasOrigem(idEstoqueOrigem) {
   }
 
   checkbox.checked = true;
+  atualizarContadorCaixas();
 }
+
+function atualizarContadorCaixas() {
+  const total = document.querySelectorAll(".chk-caixa-lote:checked").length;
+
+  const contador = document.getElementById("contador-caixas");
+
+  if (contador) {
+    contador.textContent = "Caixas selecionadas: " + total;
+  }
+}
+
 
     // ---------- Inicialização ----------
     document.addEventListener('DOMContentLoaded', () => {
@@ -578,6 +596,12 @@ async function carregarCaixasOrigem(idEstoqueOrigem) {
       carregarDadosCaixa();
       // estoques para o modo em lote
       carregarEstoquesLote();
+
+    document.addEventListener("change", function(e){
+      if(e.target.matches('#lista-caixas-origem input[type="checkbox"]')){
+       atualizarContadorCaixas();
+      }
+    });
 
       // listeners QR (movimentação única)
       const selectDestino = document.getElementById('destino');
