@@ -50,9 +50,19 @@
         <option value="">Selecione o estoque...</option>
       </select>
 
+      <h3>Ler QR para selecionar caixas</h3>
+      <button id="btn-abrir-camera" type="button">
+         Ler QR Code
+      </button>
+
+      <div id="reader" style="margin-top:12px; display:none;"></div>
+      </div>
+
       <div id="lista-caixas-origem" class="lista-caixas-lote">
         <p class="info">Selecione um estoque de origem para listar as caixas.</p>
       </div>
+
+
       <div id="contador-caixas">
         Caixas selecionadas: 0
       </div>
@@ -68,13 +78,7 @@
       <button id="btn-mover-lote">Mover caixas selecionadas</button>
       <div id="msg-lote" class="msg"></div>
 
-      <h3>Ler QR para selecionar caixas</h3>
-      <button id="btn-abrir-camera" type="button">
-         Ler QR Code
-      </button>
-
-      <div id="reader" style="margin-top:12px; display:none;"></div>
-      </div>
+      
 
     <!-- MODO 2: caixa atual (via QR) -->
     <div id="mov-por-qr" style="display:none;">
