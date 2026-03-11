@@ -264,6 +264,13 @@ function getBgColorPorEstoque(nomeEstoque) {
     return '#ffffff';
   }
 
+  //  Evento = Magenta
+  if (n.includes('evento')) {
+    return '#ed1cc3';
+  }
+
+
+
   // (mantive seus outros casos se ainda usar)
   if (n.includes('freezer')) {
     return '#fee2e2';
@@ -394,7 +401,8 @@ function getBgColorPorEstoque(nomeEstoque) {
         nomeEst.includes('camara') ||
         nomeEst.includes('liberdade') ||
         nomeEst.includes('pinheiros') ||
-        nomeEst.includes('dispon')
+        nomeEst.includes('dispon')||
+        nomeEst.includes('evento')
       );
     })
   );
